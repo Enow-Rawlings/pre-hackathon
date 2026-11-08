@@ -1,215 +1,159 @@
 /**
  * reportService.js
  * ─────────────────────────────────────────────────────────────────────────────
- * ALL data-access for reports lives here.  The rest of the app never touches
- * localStorage directly, so swapping in a real REST/GraphQL API later only
- * requires changing this file.
+ * All report data-access — now wired to the CampusFix REST API.
  *
  * Public API (used by the public-facing UI):
  *   createReport(data)              → saved report object
  *   getReportByReference(reference) → report | null
  *
- * Stub API (reserved for the future admin module — DO NOT build UI yet):
- *   listReports(filters)            → [report]
+ * Admin API:
+ *   listReports(filters)            → { reports, pagination }
  *   updateReportStatus(id, status)  → updated report
  */
 
-import { LS_KEY, STATUSES } from '../constants'
-import { generateReference } from '../utils/referenceNumber'
+const API_BASE = import.meta.env.VITE_API_URL
 
-// ─── Simulated network delay ──────────────────────────────────────────────────
-const delay = (ms = 600) => new Promise((res) => setTimeout(res, ms))
+if (!API_BASE) {
+  console.warn('[CampusFix] VITE_API_URL is not set — API calls will fail.')
+}
 
-// ─── Storage helpers ──────────────────────────────────────────────────────────
-function readAll() {
-  try {
-    const raw = localStorage.getItem(LS_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function getToken() {
+  return localStorage.getItem('campusfix_token')
+}
+
+async function apiFetch(path, options = {}) {
+  const token = getToken()
+  const headers = {
+    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
-}
 
-function writeAll(reports) {
-  localStorage.setItem(LS_KEY, JSON.stringify(reports))
-}
-
-// ─── Seed data ────────────────────────────────────────────────────────────────
-const SEED_REPORTS = [
-  {
-    id: 'seed-1',
-    reference: 'CF-2026-0001',
-    category: 'electrical',
-    location: 'Science Block, Room 204',
-    description: 'Three power sockets near the lab benches have stopped working. Students cannot charge equipment or run experiments.',
-    contact: 'kwame.asante@university.edu',
-    images: [
-      { url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800', publicId: 'seed_img_1' },
-    ],
-    status: STATUSES.RESOLVED,
-    createdAt:  '2026-10-01T09:15:00.000Z',
-    updatedAt:  '2026-10-05T14:30:00.000Z',
-  },
-  {
-    id: 'seed-2',
-    reference: 'CF-2026-0002',
-    category: 'plumbing',
-    location: 'Main Library, Ground Floor Toilets',
-    description: 'The second sink in the male restroom is leaking badly. Water has pooled on the floor creating a slip hazard for everyone using the facility.',
-    contact: '',
-    images: [],
-    status: STATUSES.IN_PROGRESS,
-    createdAt:  '2026-10-10T11:00:00.000Z',
-    updatedAt:  '2026-10-12T08:45:00.000Z',
-  },
-  {
-    id: 'seed-3',
-    reference: 'CF-2026-0003',
-    category: 'internet',
-    location: 'Engineering Block, Floor 3',
-    description: 'Wi-Fi signal is extremely weak on the entire third floor of the Engineering building. Cannot connect to university network for online assignments.',
-    contact: '+233 24 555 7890',
-    images: [
-      { url: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=800', publicId: 'seed_img_3' },
-    ],
-    status: STATUSES.PENDING,
-    createdAt:  '2026-10-18T15:30:00.000Z',
-    updatedAt:  '2026-10-18T15:30:00.000Z',
-  },
-  {
-    id: 'seed-4',
-    reference: 'CF-2026-0004',
-    category: 'security',
-    location: 'Female Hostel Block B, Gate',
-    description: 'The electronic lock on the main gate of Female Hostel Block B is broken and stays open all night. This is a serious security concern for residents.',
-    contact: 'security.concern@university.edu',
-    images: [],
-    status: STATUSES.IN_PROGRESS,
-    createdAt:  '2026-10-20T22:10:00.000Z',
-    updatedAt:  '2026-10-21T09:00:00.000Z',
-  },
-  {
-    id: 'seed-5',
-    reference: 'CF-2026-0005',
-    category: 'cleanliness',
-    location: 'Student Union Building, Cafeteria',
-    description: 'The bins in the cafeteria have been overflowing since Monday. Food waste is attracting flies and creating an unhygienic environment.',
-    contact: '',
-    images: [
-      { url: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=800', publicId: 'seed_img_5' },
-    ],
-    status: STATUSES.PENDING,
-    createdAt:  '2026-11-01T07:45:00.000Z',
-    updatedAt:  '2026-11-01T07:45:00.000Z',
-  },
-  {
-    id: 'seed-6',
-    reference: 'CF-2026-0006',
-    category: 'furniture',
-    location: 'Lecture Hall LH-07',
-    description: 'Approximately 12 chairs in Lecture Hall LH-07 have broken armrests or unstable legs. Students have to stand or share seats during lectures.',
-    contact: '',
-    images: [],
-    status: STATUSES.RESOLVED,
-    createdAt:  '2026-09-15T10:00:00.000Z',
-    updatedAt:  '2026-09-22T11:20:00.000Z',
-  },
-]
-
-/**
- * Seed the store once on first load (only if empty).
- */
-function seedIfEmpty() {
-  const existing = readAll()
-  if (existing.length === 0) {
-    writeAll(SEED_REPORTS)
+  // Don't set Content-Type when sending FormData — browser sets it with boundary
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
   }
-}
 
-// Run seed immediately when the module is first imported
-seedIfEmpty()
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    throw new Error(err.message || `Request failed: ${res.status}`)
+  }
+
+  return res.json()
+}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * createReport(data)
- * Validates, persists, and returns the new report with an auto-generated
- * reference number and timestamps.
+ * Submits a new report. Images must already be uploaded to Cloudinary and
+ * passed as [{ url, publicId }].
+ *
+ * NOTE: the backend accepts the report as JSON (no file upload at this step —
+ * cloudinaryService.js handles the direct Cloudinary upload separately, then
+ * we pass the resulting URL here).
  *
  * @param {{ category, location, description, contact, images }} data
- * @returns {Promise<Object>} the saved report
+ * @returns {Promise<Object>} the saved report  { ref_number, status, ... }
  */
 export async function createReport(data) {
-  await delay()
+  // Pick the first image URL if any were uploaded via cloudinaryService
+  const image_url = data.images?.[0]?.url ?? null
 
-  const now = new Date().toISOString()
-  const report = {
-    id:          crypto.randomUUID(),
-    reference:   generateReference(),
+  const body = {
     category:    data.category,
     location:    data.location,
     description: data.description,
     contact:     data.contact || '',
-    images:      data.images  || [],
-    status:      STATUSES.PENDING,
-    createdAt:   now,
-    updatedAt:   now,
+    image_url,
   }
 
-  const reports = readAll()
-  reports.unshift(report) // newest first
-  writeAll(reports)
-  return report
+  const json = await apiFetch('/api/reports/guest', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+  // Normalise the response shape so the rest of the UI keeps working
+  const r = json.report
+  return {
+    id:          r.id,
+    reference:   r.ref_number,   // frontend expects "reference"
+    category:    r.category,
+    location:    r.location,
+    description: r.description,
+    images:      r.image_url ? [{ url: r.image_url, publicId: '' }] : [],
+    status:      r.status,
+    createdAt:   r.created_at,
+    updatedAt:   r.updated_at,
+  }
 }
 
 /**
  * getReportByReference(reference)
- * Case-insensitive lookup.
+ * Case-insensitive public lookup — no auth required.
  *
- * @param {string} reference  e.g. "CF-2026-0001"
+ * @param {string} reference  e.g. "CFX-20261108-A3F9"
  * @returns {Promise<Object|null>}
  */
 export async function getReportByReference(reference) {
-  await delay()
-  const normalised = reference.trim().toUpperCase()
-  const reports = readAll()
-  return reports.find((r) => r.reference === normalised) ?? null
+  try {
+    const json = await apiFetch(`/api/reports/status/${encodeURIComponent(reference.trim().toUpperCase())}`)
+    const r = json.report
+    return {
+      id:          r.id,
+      reference:   r.ref_number,
+      category:    r.category,
+      location:    r.location,
+      description: r.description,
+      images:      r.image_url ? [{ url: r.image_url, publicId: '' }] : [],
+      status:      r.status,
+      createdAt:   r.created_at,
+      updatedAt:   r.updated_at,
+    }
+  } catch (err) {
+    if (err.message?.includes('404') || err.message?.toLowerCase().includes('not found')) {
+      return null
+    }
+    throw err
+  }
 }
 
-// ─── Stubs for the future admin module ───────────────────────────────────────
-// TODO (admin module): implement real filtering, sorting, and pagination.
+// ─── Admin API ────────────────────────────────────────────────────────────────
 
 /**
  * listReports(filters?)
- * Returns all reports, optionally filtered by status or category.
- * Reserved for the admin module — no public UI should call this.
+ * Requires admin JWT in localStorage.
  *
- * @param {{ status?: string, category?: string }} [filters]
- * @returns {Promise<Object[]>}
+ * @param {{ status?: string, category?: string, page?: number, limit?: number }} [filters]
+ * @returns {Promise<{ reports: Object[], pagination: Object }>}
  */
 export async function listReports(filters = {}) {
-  await delay()
-  let reports = readAll()
-  if (filters.status)   reports = reports.filter((r) => r.status   === filters.status)
-  if (filters.category) reports = reports.filter((r) => r.category === filters.category)
-  return reports
+  const params = new URLSearchParams()
+  if (filters.status)   params.set('status',   filters.status)
+  if (filters.category) params.set('category', filters.category)
+  if (filters.page)     params.set('page',     filters.page)
+  if (filters.limit)    params.set('limit',    filters.limit)
+
+  const qs = params.toString()
+  return apiFetch(`/api/reports${qs ? `?${qs}` : ''}`)
 }
 
 /**
  * updateReportStatus(id, status)
- * Updates the status of a report by its UUID.
- * Reserved for the admin module — no public UI should call this.
+ * Requires admin JWT in localStorage.
  *
  * @param {string} id
- * @param {string} status  one of STATUSES.*
- * @returns {Promise<Object|null>}
+ * @param {string} status  'Pending' | 'In Progress' | 'Resolved'
+ * @returns {Promise<Object>}
  */
 export async function updateReportStatus(id, status) {
-  await delay()
-  const reports = readAll()
-  const idx = reports.findIndex((r) => r.id === id)
-  if (idx === -1) return null
-  reports[idx] = { ...reports[idx], status, updatedAt: new Date().toISOString() }
-  writeAll(reports)
-  return reports[idx]
+  const json = await apiFetch(`/api/reports/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+  return json.report
 }

@@ -8,15 +8,13 @@ const router = express.Router();
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const VALID_CATEGORIES = [
-  "Laboratory Equipment",
-  "Sanitation",
-  "Classroom Furniture",
-  "Lighting",
-  "Water / Plumbing",
-  "Electrical",
-  "Network / IT",
-  "Security",
-  "Other",
+  "electrical",
+  "plumbing",
+  "internet",
+  "security",
+  "cleanliness",
+  "furniture",
+  "other",
 ];
 
 const VALID_STATUSES = ["Pending", "In Progress", "Resolved"];
@@ -28,8 +26,61 @@ const generateRef = () => {
   return `CFX-${date}-${rand}`;
 };
 
-// ─── POST /api/reports  (submit a new report) ─────────────────────────────────
-// Image is optional — the `upload.single("image")` middleware handles it if present.
+// ─── POST /api/reports/guest  (public: submit without auth) ──────────────────
+// Frontend uploads image directly to Cloudinary, then sends the URL here.
+router.post("/guest", async (req, res, next) => {
+  try {
+    const { category, description, location, contact, image_url } = req.body;
+
+    if (!category || !description || !location) {
+      return res
+        .status(400)
+        .json({ message: "category, description, and location are required" });
+    }
+
+    if (!VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({
+        message: "Invalid category",
+        valid_categories: VALID_CATEGORIES,
+      });
+    }
+
+    let report = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const ref_number = generateRef();
+      const { data, error } = await supabase
+        .from("reports")
+        .insert({
+          ref_number,
+          user_id: null,   // guest — no account required
+          category,
+          description: description.trim(),
+          location: location.trim(),
+          contact: contact?.trim() || null,
+          image_url: image_url || null,
+          status: "Pending",
+        })
+        .select()
+        .single();
+
+      if (!error) { report = data; break; }
+      if (error.code !== "23505") throw error;
+    }
+
+    if (!report) {
+      return res.status(500).json({ message: "Could not generate a unique reference. Try again." });
+    }
+
+    res.status(201).json({
+      message: "Report submitted successfully",
+      report: sanitizeReport(report),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/reports  (submit a new report — authenticated user) ────────────
 router.post(
   "/",
   protect,

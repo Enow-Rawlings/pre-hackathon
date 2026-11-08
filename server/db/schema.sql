@@ -15,12 +15,13 @@ create table if not exists users (
 create table if not exists reports (
   id               uuid primary key default gen_random_uuid(),
   ref_number       text not null unique,           -- e.g. CFX-20261108-A3F9
-  user_id          uuid not null references users(id) on delete set null,
+  user_id          uuid references users(id) on delete set null,
   category         text not null,
   description      text not null,
   location         text not null,
   image_url        text,
   image_public_id  text,                           -- Cloudinary public_id for deletion
+  contact          text,                           -- optional reporter contact
   status           text not null default 'Pending'
                    check (status in ('Pending', 'In Progress', 'Resolved')),
   created_at       timestamptz not null default now(),
