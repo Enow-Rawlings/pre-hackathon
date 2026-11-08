@@ -180,7 +180,7 @@ router.get("/", protect, adminOnly, async (req, res, next) => {
       .from("reports")
       .select(
         `id, ref_number, category, description, location,
-         status, image_url, created_at, updated_at,
+         status, image_url, contact, created_at, updated_at,
          users ( id, name, email )`,
         { count: "exact" }
       )
@@ -211,6 +211,24 @@ router.get("/", protect, adminOnly, async (req, res, next) => {
   }
 });
 
+// ─── GET /api/reports/my/reports  (authenticated user: own reports) ───────────
+// NOTE: must be defined BEFORE /:id or Express will treat "my" as an id param
+router.get("/my/reports", protect, async (req, res, next) => {
+  try {
+    const { data: reports, error } = await supabase
+      .from("reports")
+      .select("ref_number, category, description, location, status, image_url, contact, created_at, updated_at")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ reports });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── GET /api/reports/:id  (admin: single report detail) ─────────────────────
 router.get("/:id", protect, adminOnly, async (req, res, next) => {
   try {
@@ -218,7 +236,7 @@ router.get("/:id", protect, adminOnly, async (req, res, next) => {
       .from("reports")
       .select(
         `id, ref_number, category, description, location,
-         status, image_url, created_at, updated_at,
+         status, image_url, contact, created_at, updated_at,
          users ( id, name, email )`
       )
       .eq("id", req.params.id)
@@ -262,23 +280,6 @@ router.patch("/:id/status", protect, adminOnly, async (req, res, next) => {
       message: `Status updated to "${status}"`,
       report: sanitizeReport(report),
     });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ─── GET /api/reports/my/reports  (authenticated user: own reports) ───────────
-router.get("/my/reports", protect, async (req, res, next) => {
-  try {
-    const { data: reports, error } = await supabase
-      .from("reports")
-      .select("ref_number, category, description, location, status, image_url, created_at, updated_at")
-      .eq("user_id", req.user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    res.json({ reports });
   } catch (err) {
     next(err);
   }

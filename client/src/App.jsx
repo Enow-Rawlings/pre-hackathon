@@ -33,7 +33,7 @@ function AdminRoutes() {
     <Routes>
       <Route path="login" element={<AdminLogin />} />
       <Route
-        path=""
+        index
         element={
           <RequireAdmin>
             <AdminDashboard />
