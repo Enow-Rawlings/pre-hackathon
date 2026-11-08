@@ -1,0 +1,14 @@
+/* App-level styles — prefer Tailwind utilities in components. */
+/* Reserved for any global overrides that can't be expressed as utilities. */
+
+/* Slide-in animation for toasts */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
