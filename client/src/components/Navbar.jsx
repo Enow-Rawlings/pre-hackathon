@@ -35,7 +35,7 @@ export default function Navbar() {
           <Link
             to="/"
             className="flex items-center gap-2 font-bold text-xl text-blue-800 hover:text-blue-700 transition-colors"
-            aria-label="CampusFix – home"
+            aria-label="CampusFix home"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-700 text-white text-lg font-extrabold shadow-sm">
               CF

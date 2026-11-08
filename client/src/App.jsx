@@ -1,18 +1,15 @@
 /**
  * App.jsx — root component with routing.
  *
- * Route structure (public-facing):
+ * Route structure:
  *   /                            → LandingPage
  *   /report                      → ReportPage
  *   /report/success/:reference   → ConfirmationPage
  *   /track                       → TrackPage
  *   /track/:reference            → TrackPage (auto-loads result)
+ *   /admin/login                 → AdminLogin
+ *   /admin                       → AdminDashboard (protected)
  *   *                            → NotFoundPage
- *
- * Admin routes will be nested under /admin in a future module.
- * Example:
- *   import AdminRoutes from './admin/AdminRoutes'
- *   <Route path="/admin/*" element={<AdminRoutes />} />
  */
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
@@ -26,33 +23,56 @@ import ConfirmationPage from './pages/ConfirmationPage'
 import TrackPage        from './pages/TrackPage'
 import NotFoundPage     from './pages/NotFoundPage'
 
+import AdminLogin       from './admin/AdminLogin'
+import AdminDashboard   from './admin/AdminDashboard'
+import RequireAdmin     from './admin/RequireAdmin'
+
+// Admin routes use their own full-page layout (no shared Navbar/Footer)
+function AdminRoutes() {
+  return (
+    <Routes>
+      <Route path="login" element={<AdminLogin />} />
+      <Route
+        path=""
+        element={
+          <RequireAdmin>
+            <AdminDashboard />
+          </RequireAdmin>
+        }
+      />
+    </Routes>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <div className="min-h-screen flex flex-col bg-slate-50">
-          <Navbar />
+        <Routes>
+          {/* Admin area — own layout, no public Navbar/Footer */}
+          <Route path="/admin/*" element={<AdminRoutes />} />
 
-          {/* Page content */}
-          <div className="flex-1">
-            <Routes>
-              <Route path="/"                           element={<LandingPage />} />
-              <Route path="/report"                     element={<ReportPage />} />
-              <Route path="/report/success/:reference"  element={<ConfirmationPage />} />
-              <Route path="/track"                      element={<TrackPage />} />
-              <Route path="/track/:reference"           element={<TrackPage />} />
-
-              {/* ── Future admin module ──────────────────────────────────
-               *  Uncomment and implement when building the admin area:
-               *  <Route path="/admin/*" element={<AdminRoutes />} />
-               * ──────────────────────────────────────────────────────── */}
-
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </div>
-
-          <Footer />
-        </div>
+          {/* Public area — shared layout */}
+          <Route
+            path="*"
+            element={
+              <div className="min-h-screen flex flex-col bg-slate-50">
+                <Navbar />
+                <div className="flex-1">
+                  <Routes>
+                    <Route path="/"                           element={<LandingPage />} />
+                    <Route path="/report"                     element={<ReportPage />} />
+                    <Route path="/report/success/:reference"  element={<ConfirmationPage />} />
+                    <Route path="/track"                      element={<TrackPage />} />
+                    <Route path="/track/:reference"           element={<TrackPage />} />
+                    <Route path="*"                           element={<NotFoundPage />} />
+                  </Routes>
+                </div>
+                <Footer />
+              </div>
+            }
+          />
+        </Routes>
       </ToastProvider>
     </BrowserRouter>
   )

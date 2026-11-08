@@ -124,7 +124,7 @@ export default function ReportPage() {
           id="description"
           label="Description"
           required
-          placeholder="Describe the problem in detail — what it is, how long it's been there, and any safety concerns…"
+          placeholder="Describe the problem in detail: what it is, how long it's been there, and any safety concerns…"
           value={fields.description}
           minLength={MIN_DESC}
           maxLength={MAX_DESC}
@@ -155,7 +155,7 @@ export default function ReportPage() {
           label="Contact (email or phone)"
           placeholder="e.g. student@university.edu or +233 24 555 0000"
           value={fields.contact}
-          hint="Optional. Only used to follow up on your report — never shared publicly."
+          hint="Optional. Only used to follow up on your report. Never shared publicly."
           onChange={set('contact')}
         />
 

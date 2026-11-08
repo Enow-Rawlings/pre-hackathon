@@ -74,7 +74,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="mt-6 text-lg sm:text-xl text-blue-100 max-w-2xl mx-auto">
-            Submit maintenance and facility issues directly to the right team. No phone calls, no chasing — just a reference number and real-time updates.
+            Submit maintenance and facility issues directly to the right team. No phone calls, no chasing. Just a reference number and real-time updates.
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -184,7 +184,7 @@ export default function LandingPage() {
               to="/report"
               className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-bold px-8 py-4 rounded-2xl shadow-md transition-colors text-lg"
             >
-              Get Started — It's Free
+              Get Started. It's Free
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>

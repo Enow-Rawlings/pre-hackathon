@@ -96,7 +96,7 @@ export default function PhotoUpload({ value = [], onChange }) {
       } catch (err) {
         setItems((prev) =>
           prev.map((i) =>
-            i.tempId === tempId ? { ...i, status: 'error', error: 'Upload failed — tap to retry' } : i
+            i.tempId === tempId ? { ...i, status: 'error', error: 'Upload failed. Tap to retry' } : i
           )
         )
       }
